@@ -573,6 +573,48 @@ body[data-view="hall"].lights-on .shell {
 .gesture-hand { font: 3.1rem/1.16 system-ui, sans-serif; }
 .gesture-side:last-child .gesture-hand { transform: scaleX(-1); }
 
+.gesture.has-portrait {
+  display: block;
+  position: relative;
+  isolation: isolate;
+  width: min(100%, 322px);
+  aspect-ratio: 322 / 278;
+  margin: -4px auto 7px;
+  background: radial-gradient(ellipse at 50% 58%, #7c453b62, transparent 68%);
+}
+
+.gesture-portrait {
+  position: absolute;
+  inset: 2% 0 4%;
+  width: 100%;
+  height: 94%;
+  object-fit: contain;
+  mask-image: linear-gradient(#000 90%, transparent 100%);
+}
+
+.has-portrait .gesture-side {
+  position: absolute;
+  z-index: 1;
+  top: 58%;
+  left: 26%;
+  translate: -50% 0;
+  gap: 0;
+}
+
+.has-portrait .gesture-side:last-child { left: 74%; }
+.has-portrait .gesture-digit {
+  font-size: clamp(25px, 6vw, 34px);
+  text-shadow: 0 2px 8px #23130f;
+}
+
+.has-portrait .gesture-hand {
+  font: clamp(42px, 10vw, 64px)/.96 "Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji", sans-serif;
+  filter: drop-shadow(0 2px 3px #25150883);
+  transform: scaleX(-1);
+}
+
+.has-portrait .gesture-side:last-child .gesture-hand { transform: none; }
+
 @keyframes gesture-rock {
   0%, 100% { transform: translateY(8px) rotate(-5deg); }
   50% { transform: translateY(-8px) rotate(5deg); }
@@ -611,6 +653,10 @@ body[data-view="hall"].lights-on .shell {
   .seat-row { grid-template-columns: 13px repeat(12, minmax(0, 1fr)) 13px; gap: 2px; }
   .seat { width: 100%; min-height: 30px; aspect-ratio: auto; touch-action: manipulation; }
   .seat span { font-size: 10px; }
+}
+
+@media (max-width: 360px) {
+  .has-portrait .gesture-side { top: 54%; }
 }
 
 @media (max-height: 480px) and (min-width: 651px) {
