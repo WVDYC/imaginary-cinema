@@ -13,13 +13,17 @@ const resultDialog = document.getElementById('result-dialog');
 const resultSeats = document.getElementById('result-seats');
 const shareStatus = document.getElementById('share-status');
 const notificationStatus = document.getElementById('notification-status');
+const verificationPanel = document.getElementById('visitor-verification');
 const reducedMotion = matchMedia('(prefers-reduced-motion: reduce)');
 const notificationEndpoint = document.querySelector('meta[name="seat-notification-endpoint"]').content;
+const verificationSitekey = document.querySelector('meta[name="seat-verification-sitekey"]').content;
 const notifications = new Map();
 
 const seatsPerRow = 12;
 const rowCount = 12;
 let selectedPair = null;
+let verificationScript = null;
+let activeVerification = null;
 
 function currentInvitation() {
   if (!notificationEndpoint) return null;
@@ -28,13 +32,92 @@ function currentInvitation() {
 }
 
 function updateConfirmationLabels() {
-  const label = currentInvitation() ? 'Подтвердить и отправить' : 'Подтвердить места';
+  const label = notificationEndpoint && (currentInvitation() || verificationSitekey)
+    ? 'Подтвердить и отправить'
+    : 'Подтвердить места';
   confirmGesture.textContent = label;
   confirmSelection.textContent = selectedPair?.start === 6 ? 'Точно уверена?' : label;
 }
 
 window.addEventListener('hashchange', updateConfirmationLabels);
 updateConfirmationLabels();
+
+function loadVerificationWidget() {
+  if (window.turnstile?.render) return Promise.resolve(window.turnstile);
+  if (verificationScript) return verificationScript;
+
+  verificationScript = new Promise((resolve, reject) => {
+    const script = document.createElement('script');
+    script.src = 'https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit';
+    script.async = true;
+    const timeout = setTimeout(failed, 10000);
+    function failed() {
+      clearTimeout(timeout);
+      script.remove();
+      verificationScript = null;
+      reject(new Error('Verification script unavailable'));
+    }
+    script.addEventListener('error', failed, { once: true });
+    script.addEventListener('load', () => {
+      if (!window.turnstile?.ready) return failed();
+      window.turnstile.ready(() => {
+        clearTimeout(timeout);
+        resolve(window.turnstile);
+      });
+    }, { once: true });
+    document.head.append(script);
+  });
+  return verificationScript;
+}
+
+async function getVisitorProof(pair) {
+  const controller = new AbortController();
+  const { signal } = controller;
+  activeVerification = controller;
+  try {
+    const turnstile = await loadVerificationWidget();
+    if (signal.aborted) throw new DOMException('Verification cancelled', 'AbortError');
+    return await new Promise((resolve, reject) => {
+      verificationPanel.hidden = false;
+      let widgetId;
+      let settled = false;
+      const timeout = setTimeout(() => complete(), 120000);
+      function complete(proof) {
+        if (settled) return;
+        settled = true;
+        clearTimeout(timeout);
+        signal.removeEventListener('abort', cancel);
+        if (widgetId != null) turnstile.remove(widgetId);
+        verificationPanel.hidden = true;
+        if (proof) resolve(proof);
+        else reject(new Error('Visitor verification incomplete'));
+      }
+      function cancel() { complete(); }
+      signal.addEventListener('abort', cancel, { once: true });
+      try {
+        widgetId = turnstile.render(verificationPanel, {
+          sitekey: verificationSitekey,
+          action: 'seat-confirmation',
+          cData: `r${pair.row}-s${pair.start}`,
+          language: 'ru',
+          appearance: 'interaction-only',
+          size: 'flexible',
+          'response-field': false,
+          callback: complete,
+          'error-callback': () => { complete(); return true; },
+          'expired-callback': cancel,
+          'timeout-callback': cancel,
+        });
+      } catch {
+        complete();
+      }
+    });
+  } finally {
+    if (activeVerification === controller) activeVerification = null;
+  }
+}
+
+resultDialog.addEventListener('close', () => activeVerification?.abort());
 
 for (let row = 0; row < 3; row++) {
   const line = document.createElement('div');
@@ -161,34 +244,51 @@ function showResult() {
   notificationStatus.textContent = '';
   resultDialog.showModal();
   const key = currentInvitation();
-  if (key) notifyOrganizer(pair, key);
+  if (notificationEndpoint && (key || verificationSitekey)) notifyOrganizer(pair, key);
+}
+
+async function submitNotification(pair, key) {
+  const headers = { 'Content-Type': 'application/json' };
+  let body = pair;
+  if (key) {
+    headers.Authorization = `Bearer ${key}`;
+  } else {
+    try {
+      body = { ...pair, proof: await getVisitorProof(pair) };
+    } catch {
+      return 403;
+    }
+  }
+  return fetch(notificationEndpoint, {
+    method: 'POST',
+    headers,
+    body: JSON.stringify(body),
+    signal: AbortSignal.timeout(13000),
+  }).then(response => response.status, () => 0);
 }
 
 async function notifyOrganizer(pair, key) {
   const choice = formatPair(pair);
   const notificationId = key + ':' + choice;
   notificationStatus.hidden = false;
-  notificationStatus.textContent = 'Отправляем выбор организатору…';
+  notificationStatus.textContent = key ? 'Отправляем выбор организатору…' : 'Проверяем отправку…';
 
   if (!notifications.has(notificationId)) {
-    const notification = fetch(notificationEndpoint, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${key}`,
-      },
-      body: JSON.stringify(pair),
-      signal: AbortSignal.timeout(8500),
-    }).then(response => response.ok, () => false);
-    notifications.set(notificationId, notification);
+    notifications.set(notificationId, submitNotification(pair, key));
   }
 
-  const sent = await notifications.get(notificationId);
-  if (!sent) notifications.delete(notificationId);
+  const outcome = await notifications.get(notificationId);
+  if (outcome !== 204) notifications.delete(notificationId);
   if (resultDialog.open && resultSeats.textContent === choice && currentInvitation() === key) {
-    notificationStatus.textContent = sent
-      ? 'Выбор отправлен организатору.'
-      : 'Не удалось отправить выбор. Используй «Поделиться».';
+    if (outcome === 204) {
+      notificationStatus.textContent = 'Выбор отправлен организатору.';
+    } else if (outcome === 429) {
+      notificationStatus.textContent = 'Слишком много отправок. Попробуй через минуту.';
+    } else if (outcome === 403 && !key) {
+      notificationStatus.textContent = 'Проверка не завершилась. Попробуй ещё раз или нажми «Поделиться».';
+    } else {
+      notificationStatus.textContent = 'Не удалось отправить выбор. Используй «Поделиться».';
+    }
   }
 }
 
