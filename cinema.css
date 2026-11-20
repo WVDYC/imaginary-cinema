@@ -609,7 +609,7 @@ body[data-view="hall"].lights-on .shell {
   .shell { padding-inline: 10px; }
   .hall { padding-inline: 5px; }
   .seat-row { grid-template-columns: 13px repeat(12, minmax(0, 1fr)) 13px; gap: 2px; }
-  .seat { min-height: 30px; touch-action: manipulation; }
+  .seat { width: 100%; min-height: 30px; aspect-ratio: auto; touch-action: manipulation; }
   .seat span { font-size: 10px; }
 }
 
