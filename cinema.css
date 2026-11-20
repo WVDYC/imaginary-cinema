@@ -605,6 +605,14 @@ body[data-view="hall"].lights-on .shell {
   .hall-view { padding-top: 21px; }
 }
 
+@media (max-width: 420px) {
+  .shell { padding-inline: 10px; }
+  .hall { padding-inline: 5px; }
+  .seat-row { grid-template-columns: 13px repeat(12, minmax(0, 1fr)) 13px; gap: 2px; }
+  .seat { min-height: 30px; touch-action: manipulation; }
+  .seat span { font-size: 10px; }
+}
+
 @media (max-height: 480px) and (min-width: 651px) {
   .proscenium { height: 60%; }
   .leader-number { font-size: 23vh; }
