@@ -9,7 +9,6 @@ const selection = document.getElementById('selection-text');
 const confirmSelection = document.getElementById('confirm');
 const confirmGesture = document.getElementById('confirm-gesture');
 const gestureDialog = document.getElementById('gesture-dialog');
-const gesturePortrait = document.getElementById('gesture-portrait');
 const resultDialog = document.getElementById('result-dialog');
 const resultSeats = document.getElementById('result-seats');
 const shareStatus = document.getElementById('share-status');
@@ -21,8 +20,6 @@ const notifications = new Map();
 const seatsPerRow = 12;
 const rowCount = 12;
 let selectedPair = null;
-let displayedPortraitKey = null;
-let pendingPortraitKey = null;
 
 function currentInvitation() {
   if (!notificationEndpoint) return null;
@@ -36,51 +33,8 @@ function updateConfirmationLabels() {
   confirmSelection.textContent = selectedPair?.start === 6 ? 'Точно уверена?' : label;
 }
 
-window.addEventListener('hashchange', () => {
-  updateConfirmationLabels();
-  if (displayedPortraitKey !== currentInvitation()) clearGesturePortrait();
-  if (gestureDialog.open) loadGesturePortrait();
-});
+window.addEventListener('hashchange', updateConfirmationLabels);
 updateConfirmationLabels();
-
-function clearGesturePortrait() {
-  const imageUrl = gesturePortrait.getAttribute('src');
-  if (imageUrl) URL.revokeObjectURL(imageUrl);
-  gesturePortrait.removeAttribute('src');
-  gesturePortrait.hidden = true;
-  gesturePortrait.parentElement.classList.remove('has-portrait');
-  displayedPortraitKey = null;
-}
-
-async function loadGesturePortrait() {
-  const key = currentInvitation();
-  if (!key || key === displayedPortraitKey || key === pendingPortraitKey) return;
-
-  pendingPortraitKey = key;
-  try {
-    const response = await fetch('./portrait.enc', { signal: AbortSignal.timeout(6500) });
-    if (!response.ok) return;
-    const encrypted = new Uint8Array(await response.arrayBuffer());
-    const material = new TextEncoder().encode('imaginary-cinema-portrait-v1:' + key);
-    const digest = await crypto.subtle.digest('SHA-256', material);
-    const portraitKey = await crypto.subtle.importKey('raw', digest, 'AES-GCM', false, ['decrypt']);
-    const decoded = await crypto.subtle.decrypt(
-      { name: 'AES-GCM', iv: encrypted.subarray(0, 12) },
-      portraitKey,
-      encrypted.subarray(12),
-    );
-    if (key !== currentInvitation()) return;
-    clearGesturePortrait();
-    gesturePortrait.src = URL.createObjectURL(new Blob([decoded], { type: 'image/webp' }));
-    gesturePortrait.hidden = false;
-    gesturePortrait.parentElement.classList.add('has-portrait');
-    displayedPortraitKey = key;
-  } catch {
-    // The animated emoji can still be shown if the portrait fails to load.
-  } finally {
-    if (pendingPortraitKey === key) pendingPortraitKey = null;
-  }
-}
 
 for (let row = 0; row < 3; row++) {
   const line = document.createElement('div');
@@ -241,7 +195,6 @@ async function notifyOrganizer(pair, key) {
 confirmSelection.addEventListener('click', () => {
   if (selectedPair.start === 6) {
     gestureDialog.showModal();
-    loadGesturePortrait();
   } else {
     showResult();
   }
