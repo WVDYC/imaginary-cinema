@@ -532,8 +532,21 @@ body[data-view="hall"].lights-on .shell {
 
 .seat-dialog h2 { font-size: clamp(29px, 6vw, 39px); }
 .result-seats { color: #f6c897; margin: 14px 0 0; user-select: text; }
-.share-status { color: var(--muted); font-size: 14px; margin: 15px 0 0; }
+.notification-status { color: var(--muted); font-size: 14px; margin: 15px 0 0; }
 .visitor-verification { display: grid; justify-items: center; margin-top: 12px; }
+
+.result-confetti {
+  position: fixed;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.result-confetti span {
+  position: absolute;
+  aspect-ratio: 3 / 2;
+  border-radius: 2px;
+}
 
 .dialog-actions {
   display: flex;

@@ -10,8 +10,10 @@ const confirmSelection = document.getElementById('confirm');
 const confirmGesture = document.getElementById('confirm-gesture');
 const gestureDialog = document.getElementById('gesture-dialog');
 const resultDialog = document.getElementById('result-dialog');
+const resultTitle = document.getElementById('result-title');
 const resultSeats = document.getElementById('result-seats');
-const shareStatus = document.getElementById('share-status');
+const closeResult = document.getElementById('close-result');
+const resultConfetti = document.getElementById('result-confetti');
 const notificationStatus = document.getElementById('notification-status');
 const verificationPanel = document.getElementById('visitor-verification');
 const reducedMotion = matchMedia('(prefers-reduced-motion: reduce)');
@@ -22,6 +24,7 @@ const notifications = new Map();
 const seatsPerRow = 12;
 const rowCount = 12;
 let selectedPair = null;
+let currentResult = null;
 let verificationScript = null;
 let activeVerification = null;
 
@@ -117,7 +120,10 @@ async function getVisitorProof(pair) {
   }
 }
 
-resultDialog.addEventListener('close', () => activeVerification?.abort());
+resultDialog.addEventListener('close', () => {
+  activeVerification?.abort();
+  resultConfetti.replaceChildren();
+});
 
 for (let row = 0; row < 3; row++) {
   const line = document.createElement('div');
@@ -235,16 +241,67 @@ function formatPair({ row, start }) {
   return `Ряд ${row} · места ${start} и ${start + 1}`;
 }
 
-function showResult() {
+function celebrateSelection() {
+  if (reducedMotion.matches) return;
+
+  const colors = ['#f5cb86', '#fff0d1', '#f17069', '#ee9ab6', '#ceaff0'];
+  const { left, right, bottom } = resultDialog.getBoundingClientRect();
+  const spread = Math.min(window.innerWidth * 0.46, 280);
+
+  for (let index = 0; index < 42; index++) {
+    const direction = index % 2 === 0 ? 1 : -1;
+    const drift = (Math.random() - 0.27) * spread * direction;
+    const rise = 95 + Math.random() * 175;
+    const spin = (140 + Math.random() * 360) * direction;
+
+    const piece = document.createElement('span');
+    piece.style.left = (direction === 1 ? left + 26 : right - 26) + 'px';
+    piece.style.top = (bottom - 38) + 'px';
+    piece.style.width = (5 + Math.random() * 6) + 'px';
+    piece.style.backgroundColor = colors[index % colors.length];
+    resultConfetti.append(piece);
+
+    const animation = piece.animate([
+      { transform: 'scale(.35)', opacity: 0, easing: 'cubic-bezier(.1,.55,.35,1)' },
+      { transform: `translate(${drift}px, ${-rise}px) rotate(${spin}deg)`, opacity: 1, offset: 0.45, easing: 'ease-in' },
+      { transform: `translate(${drift * 1.45}px, 120px) rotate(${spin * 1.6}deg)`, opacity: 0 },
+    ], { duration: 1250 + Math.random() * 500, delay: Math.random() * 100, fill: 'both' });
+    animation.onfinish = () => piece.remove();
+  }
+}
+
+async function showResult() {
   const pair = selectedPair;
+  const key = currentInvitation();
+  const confirmation = { pair, key };
+  currentResult = confirmation;
+  const shouldNotify = notificationEndpoint && (key || verificationSitekey);
+
+  resultTitle.textContent = shouldNotify ? 'Подтверждаем места…' : 'Места выбраны';
   resultSeats.textContent = formatPair(pair);
-  shareStatus.hidden = true;
-  shareStatus.textContent = '';
+  closeResult.textContent = shouldNotify ? 'Отмена' : 'Закрыть';
   notificationStatus.hidden = true;
   notificationStatus.textContent = '';
   resultDialog.showModal();
-  const key = currentInvitation();
-  if (notificationEndpoint && (key || verificationSitekey)) notifyOrganizer(pair, key);
+
+  const outcome = shouldNotify ? await notifyOrganizer(pair, key) : 204;
+  if (!resultDialog.open || currentResult !== confirmation) return;
+
+  resultTitle.textContent = 'Места выбраны';
+  closeResult.textContent = 'Закрыть';
+  if (outcome === 204) {
+    celebrateSelection();
+    return;
+  }
+
+  if (outcome === 429) {
+    notificationStatus.textContent = 'Слишком много отправок. Попробуй через минуту.';
+  } else if (outcome === 403 && !key) {
+    notificationStatus.textContent = 'Проверка не завершилась. Попробуй подтвердить места ещё раз.';
+  } else {
+    notificationStatus.textContent = 'Не удалось отправить выбор. Попробуй подтвердить места ещё раз.';
+  }
+  notificationStatus.hidden = false;
 }
 
 async function submitNotification(pair, key) {
@@ -268,28 +325,16 @@ async function submitNotification(pair, key) {
 }
 
 async function notifyOrganizer(pair, key) {
-  const choice = formatPair(pair);
-  const notificationId = key + ':' + choice;
-  notificationStatus.hidden = false;
-  notificationStatus.textContent = key ? 'Отправляем выбор организатору…' : 'Проверяем отправку…';
+  const notificationId = key + ':' + formatPair(pair);
 
   if (!notifications.has(notificationId)) {
-    notifications.set(notificationId, submitNotification(pair, key));
+    notifications.set(notificationId, submitNotification(pair, key).catch(() => 0));
   }
 
-  const outcome = await notifications.get(notificationId);
-  if (outcome !== 204) notifications.delete(notificationId);
-  if (resultDialog.open && resultSeats.textContent === choice && currentInvitation() === key) {
-    if (outcome === 204) {
-      notificationStatus.textContent = 'Выбор отправлен организатору.';
-    } else if (outcome === 429) {
-      notificationStatus.textContent = 'Слишком много отправок. Попробуй через минуту.';
-    } else if (outcome === 403 && !key) {
-      notificationStatus.textContent = 'Проверка не завершилась. Попробуй ещё раз или нажми «Поделиться».';
-    } else {
-      notificationStatus.textContent = 'Не удалось отправить выбор. Используй «Поделиться».';
-    }
-  }
+  const request = notifications.get(notificationId);
+  const outcome = await request;
+  if (outcome !== 204 && notifications.get(notificationId) === request) notifications.delete(notificationId);
+  return outcome;
 }
 
 confirmSelection.addEventListener('click', () => {
@@ -303,24 +348,4 @@ confirmSelection.addEventListener('click', () => {
 confirmGesture.addEventListener('click', () => {
   gestureDialog.close();
   showResult();
-});
-
-document.getElementById('share-selection').addEventListener('click', async () => {
-  const text = resultSeats.textContent;
-  if (typeof navigator.share === 'function') {
-    try {
-      await navigator.share({ text });
-      return;
-    } catch (error) {
-      if (error.name === 'AbortError') return;
-    }
-  }
-
-  shareStatus.hidden = false;
-  try {
-    await navigator.clipboard.writeText(text);
-    shareStatus.textContent = 'Скопировано. Вставь в сообщение.';
-  } catch {
-    shareStatus.textContent = 'Скопируй строку с рядом и местами вручную.';
-  }
 });

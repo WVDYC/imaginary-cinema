@@ -8,8 +8,8 @@
   <meta name="seat-notification-endpoint" content="https://cinema-seat-notifier.wvdyc-cinema-26.workers.dev/seats">
   <meta name="seat-verification-sitekey" content="0x4AAAAAAGKNmsyIK_RQZLOV">
   <title>Воображаемый кинозал</title>
-  <link rel="stylesheet" href="./cinema.css">
-  <script src="./cinema.js?v=verified-2" defer></script>
+  <link rel="stylesheet" href="./cinema.css?v=confirmation-1">
+  <script src="./cinema.js?v=confirmation-1" defer></script>
 </head>
 <body data-view="intro">
   <div class="shell">
@@ -89,15 +89,14 @@
       </form>
     </dialog>
     <dialog class="seat-dialog" id="result-dialog" aria-labelledby="result-title">
-      <h2 id="result-title">Места выбраны</h2>
+      <h2 id="result-title" aria-live="polite">Места выбраны</h2>
       <p class="result-seats" id="result-seats"></p>
-      <p class="share-status" id="notification-status" role="status" hidden></p>
+      <p class="notification-status" id="notification-status" role="status" hidden></p>
       <div class="visitor-verification" id="visitor-verification" hidden></div>
       <form class="dialog-actions" method="dialog">
-        <button class="secondary" type="submit">Закрыть</button>
-        <button class="primary" type="button" id="share-selection">Поделиться</button>
+        <button class="primary" type="submit" id="close-result">Закрыть</button>
       </form>
-      <p class="share-status" id="share-status" role="status" hidden></p>
+      <div class="result-confetti" id="result-confetti" aria-hidden="true"></div>
     </dialog>
   </div>
 </body>
