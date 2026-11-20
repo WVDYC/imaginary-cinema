@@ -7,11 +7,19 @@ const status = document.getElementById('intro-status');
 const map = document.getElementById('seat-map');
 const selection = document.getElementById('selection-text');
 const confirmSelection = document.getElementById('confirm');
+const confirmGesture = document.getElementById('confirm-gesture');
 const gestureDialog = document.getElementById('gesture-dialog');
 const resultDialog = document.getElementById('result-dialog');
 const resultSeats = document.getElementById('result-seats');
 const shareStatus = document.getElementById('share-status');
+const notificationStatus = document.getElementById('notification-status');
 const reducedMotion = matchMedia('(prefers-reduced-motion: reduce)');
+const notificationEndpoint = document.querySelector('meta[name="seat-notification-endpoint"]').content;
+const invitationKey = new URLSearchParams(location.hash.slice(1)).get('invite');
+const notificationsEnabled = Boolean(notificationEndpoint && invitationKey);
+const confirmationLabel = notificationsEnabled ? 'Подтвердить и отправить' : 'Подтвердить места';
+const notifications = new Map();
+confirmGesture.textContent = confirmationLabel;
 
 const seatsPerRow = 12;
 const rowCount = 12;
@@ -125,7 +133,7 @@ function choose(row, seat) {
     button.setAttribute('aria-pressed', String(selected));
   }
   selection.textContent = formatPair(selectedPair);
-  confirmSelection.textContent = start === 6 ? 'Точно уверена?' : 'Подтвердить места';
+  confirmSelection.textContent = start === 6 ? 'Точно уверена?' : confirmationLabel;
   confirmSelection.hidden = false;
 }
 
@@ -134,10 +142,41 @@ function formatPair({ row, start }) {
 }
 
 function showResult() {
-  resultSeats.textContent = formatPair(selectedPair);
+  const pair = selectedPair;
+  resultSeats.textContent = formatPair(pair);
   shareStatus.hidden = true;
   shareStatus.textContent = '';
+  notificationStatus.hidden = true;
+  notificationStatus.textContent = '';
   resultDialog.showModal();
+  if (notificationsEnabled) notifyOrganizer(pair);
+}
+
+async function notifyOrganizer(pair) {
+  const choice = formatPair(pair);
+  notificationStatus.hidden = false;
+  notificationStatus.textContent = 'Отправляем выбор организатору…';
+
+  if (!notifications.has(choice)) {
+    const notification = fetch(notificationEndpoint, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${invitationKey}`,
+      },
+      body: JSON.stringify(pair),
+      signal: AbortSignal.timeout(8500),
+    }).then(response => response.ok, () => false);
+    notifications.set(choice, notification);
+  }
+
+  const sent = await notifications.get(choice);
+  if (!sent) notifications.delete(choice);
+  if (resultDialog.open && resultSeats.textContent === choice) {
+    notificationStatus.textContent = sent
+      ? 'Выбор отправлен организатору.'
+      : 'Не удалось отправить выбор. Используй «Поделиться».';
+  }
 }
 
 confirmSelection.addEventListener('click', () => {
@@ -148,7 +187,7 @@ confirmSelection.addEventListener('click', () => {
   }
 });
 
-document.getElementById('confirm-gesture').addEventListener('click', () => {
+confirmGesture.addEventListener('click', () => {
   gestureDialog.close();
   showResult();
 });

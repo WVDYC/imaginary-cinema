@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="theme-color" content="#120d0d">
   <meta name="description" content="Воображаемый кинозал. Выбери два соседних места.">
+  <meta name="seat-notification-endpoint" content="">
   <title>Воображаемый кинозал</title>
   <link rel="stylesheet" href="./cinema.css">
   <script src="./cinema.js" defer></script>
@@ -88,6 +89,7 @@
     <dialog class="seat-dialog" id="result-dialog" aria-labelledby="result-title">
       <h2 id="result-title">Места выбраны</h2>
       <p class="result-seats" id="result-seats"></p>
+      <p class="share-status" id="notification-status" role="status" hidden></p>
       <form class="dialog-actions" method="dialog">
         <button class="secondary" type="submit">Закрыть</button>
         <button class="primary" type="button" id="share-selection">Поделиться</button>
