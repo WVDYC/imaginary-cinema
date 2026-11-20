@@ -1,0 +1,99 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#120d0d">
+  <meta name="description" content="Воображаемый кинозал. Выбери два соседних места.">
+  <title>Воображаемый кинозал</title>
+  <link rel="stylesheet" href="./cinema.css">
+  <script src="./cinema.js" defer></script>
+</head>
+<body data-view="intro">
+  <div class="shell">
+    <main>
+<section class="welcome" id="welcome" aria-label="Кинозал с закрытыми шторами">
+  <div class="theatre" aria-hidden="true">
+    <div class="ceiling"></div>
+    <div class="sconce left"></div>
+    <div class="sconce right"></div>
+    <div class="proscenium">
+      <div class="stage-screen">
+        <div class="leader">
+          <div class="film-frame">
+            <div class="sweep" id="sweep"></div>
+            <div class="leader-cross"></div>
+            <div class="leader-dial"></div>
+            <div class="leader-number" id="leader-number">5</div>
+          </div>
+          <div class="film-grain"></div>
+          <div class="scratch scratch-edge"></div>
+          <div class="scratch scratch-center"></div>
+          <div class="scratch scratch-right"></div>
+          <div class="film-dust"></div>
+        </div>
+      </div>
+      <div class="curtain left"></div>
+      <div class="curtain right"></div>
+      <div class="valance"></div>
+    </div>
+    <div class="chairs" id="chairs"></div>
+  </div>
+  <div class="entry-controls"><button type="button" class="primary" id="enter">Выбрать места</button></div>
+  <p class="intro-status" id="intro-status" role="status"></p>
+  <div class="blackout" aria-hidden="true"></div>
+</section>
+<section class="hall-view" id="hall-view" aria-labelledby="hall-title" hidden>
+  <div class="hall-heading">
+    <div>
+      <h2 id="hall-title" tabindex="-1">Воображаемый кинозал</h2>
+      <p class="hall-description">Нажми на кресло</p>
+    </div>
+    <span class="hall-count">12 рядов · 12 мест в ряду</span>
+  </div>
+  <div class="hall">
+    <div class="selection-projector" aria-hidden="true"></div>
+    <div class="screen">ЭКРАН</div>
+    <div class="seat-map" id="seat-map"></div>
+    <div class="legend">
+      <span><i class="swatch"></i>Можно выбрать</span>
+      <span><i class="swatch selected"></i>Выбрано</span>
+      <span><i class="swatch disabled"></i>Пропускаем</span>
+    </div>
+    <p class="hall-note">Первые четыре ряда и последний пока пропускаем.</p>
+  </div>
+  <div class="selection">
+    <strong id="selection-text" aria-live="polite">Места пока не выбраны</strong>
+    <button type="button" class="primary selection-action" id="confirm" hidden>Подтвердить места</button>
+  </div>
+</section>
+    </main>
+    <dialog class="seat-dialog" id="gesture-dialog" aria-labelledby="gesture-title">
+      <div class="gesture" aria-hidden="true">
+        <span class="gesture-side">
+          <span class="gesture-digit">6</span>
+          <span class="gesture-hand">🫴</span>
+        </span>
+        <span class="gesture-side">
+          <span class="gesture-digit">7</span>
+          <span class="gesture-hand">🫴</span>
+        </span>
+      </div>
+      <h2 id="gesture-title">Точно уверена?</h2>
+      <form class="dialog-actions" method="dialog">
+        <button class="secondary" type="submit">Поменять</button>
+        <button class="primary" type="button" id="confirm-gesture">Подтвердить места</button>
+      </form>
+    </dialog>
+    <dialog class="seat-dialog" id="result-dialog" aria-labelledby="result-title">
+      <h2 id="result-title">Места выбраны</h2>
+      <p class="result-seats" id="result-seats"></p>
+      <form class="dialog-actions" method="dialog">
+        <button class="secondary" type="submit">Закрыть</button>
+        <button class="primary" type="button" id="share-selection">Поделиться</button>
+      </form>
+      <p class="share-status" id="share-status" role="status" hidden></p>
+    </dialog>
+  </div>
+</body>
+</html>
