@@ -48,23 +48,23 @@ function loadVerificationWidget() {
 
   verificationScript = new Promise((resolve, reject) => {
     const script = document.createElement('script');
-    script.src = 'https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit';
+    script.src = 'https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit&onload=onCinemaTurnstileLoad';
     script.async = true;
     const timeout = setTimeout(failed, 10000);
     function failed() {
       clearTimeout(timeout);
+      delete window.onCinemaTurnstileLoad;
       script.remove();
       verificationScript = null;
       reject(new Error('Verification script unavailable'));
     }
     script.addEventListener('error', failed, { once: true });
-    script.addEventListener('load', () => {
-      if (!window.turnstile?.ready) return failed();
-      window.turnstile.ready(() => {
-        clearTimeout(timeout);
-        resolve(window.turnstile);
-      });
-    }, { once: true });
+    window.onCinemaTurnstileLoad = () => {
+      if (!window.turnstile?.render) return failed();
+      clearTimeout(timeout);
+      delete window.onCinemaTurnstileLoad;
+      resolve(window.turnstile);
+    };
     document.head.append(script);
   });
   return verificationScript;
